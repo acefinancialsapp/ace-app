@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "ace",
+    "slug": "ace",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/app-icon.jpg",
+    "scheme": "aceapp",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.acefinancials.aceapp",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/app-icon.jpg",
+        "backgroundColor": "#ffffff",
+        "versionCode": 3
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.acefinancials.aceapp"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/app-icon.jpg",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "91a60d89-d214-4fce-bce3-a557fc05cb9b"
+      }
+    },
+    "owner": "acefinancialsapp"
+  }
+}
