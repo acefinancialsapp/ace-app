@@ -1,6 +1,8 @@
 export const endpointConstants = {
   LOGINURL: "auth/login",
   REGISTERPUSHDEVICE: "ace/RegisterPushDevice",
+  APPUPDATEPIN: "ace/AppUpdatePin",
+  GETLOGINPIN: "ace/GetLoginPin",
   GETAPPROVAL: "ace/GetApproval",
   GETAPPROVALDETAILBYDOC: "ace/GetApprovalDetailByDoc",
   GETATTACHMENTDETAILS: "ace/GetAttachmentDetails",
