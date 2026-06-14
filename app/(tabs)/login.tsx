@@ -1,12 +1,13 @@
 import { useHttp } from "@/services/app.services";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Button,
   Dimensions,
   ImageBackground,
   Modal,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -15,9 +16,11 @@ import {
 import * as SecureStore from "expo-secure-store";
 import { storeToken } from "@/services/common.services";
 import { endpointConstants } from "@/constants/endpoint";
-import { Picker } from "@react-native-picker/picker";
-import { getCompUrl } from "@/services/common.services";
 import { Dropdown } from "react-native-element-dropdown";
+import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
+import * as Device from "expo-device";
+import * as Application from "expo-application";
 
 type RootStackParamMenu = {
   Menu: undefined;
@@ -41,27 +44,114 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const useHttpService = useHttp();
   const [isLoading, setIsLoading] = useState(false);
   const [page, setPage] = useState("");
-  const [apiUrl, setApiUrl] = useState("");
-  const [smessage, setSmesssage] = useState("");
-  const [apiUrlpParams, setApiParams] = useState<{
-    Compid: string;
-    Username: string;
-    Password: string;
-  }>({ Compid: "", Username: "", Password: "" });
 
   const [companyOptions, setCompanyOptions] = useState<any[]>([]);
 
-  useEffect(() => {
-    fetchCompanyList();
-    const checkCredentials = async () => {
-      const credentialsExist = await retriveCredentials();
-      if (!credentialsExist) {
-        setPage("Register");
+  const getDeviceId = useCallback(async () => {
+    try {
+      if (Platform.OS === "android") {
+        return Application.getAndroidId();
       }
-    };
-    checkCredentials();
+      if (Platform.OS === "ios") {
+        return (await Application.getIosIdForVendorAsync()) || null;
+      }
+      return null;
+    } catch (error) {
+      console.error("Failed to resolve device id", error);
+      return null;
+    }
   }, []);
-  const fetchCompanyList = async () => {
+
+  const registerPushDevice = useCallback(
+    async (userId: string, companyId: string, customToken?: string) => {
+      try {
+        if (!Device.isDevice) {
+          console.log(
+            "Push notification registration skipped: not a physical device."
+          );
+          return;
+        }
+
+        if (Platform.OS === "android") {
+          await Notifications.setNotificationChannelAsync("default", {
+            name: "default",
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: "#04447c",
+          });
+        }
+
+        const { status: existingStatus } =
+          await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+        if (existingStatus !== "granted") {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        }
+
+        if (finalStatus !== "granted") {
+          console.warn("Push notification permission denied by user.");
+          return;
+        }
+
+        const projectId =
+          Constants.expoConfig?.extra?.eas?.projectId ||
+          Constants.easConfig?.projectId;
+
+        if (!projectId) {
+          throw new Error("Missing Expo EAS projectId for push token generation.");
+        }
+
+        const token =
+          customToken ||
+          (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+
+        if (!token) {
+          throw new Error("Expo push token generation failed.");
+        }
+
+        const deviceId = await getDeviceId();
+        if (!deviceId) {
+          throw new Error("Unable to resolve a unique device identifier.");
+        }
+
+        const compUrl =
+          companyOptions.find((c) => c.value === companyId)?.url || "";
+        if (!compUrl) {
+          throw new Error("Company URL is unavailable for push registration.");
+        }
+
+        const registrationUrl = `${compUrl}/api/${endpointConstants.REGISTERPUSHDEVICE}/${encodeURIComponent(
+          companyId
+        )}/${encodeURIComponent(userId)}/${encodeURIComponent(
+          deviceId
+        )}/${encodeURIComponent(token)}`;
+
+        console.log("Registering push device", {
+          userId,
+          companyId,
+          deviceId,
+        });
+
+        const response: any = await useHttpService.sendRequest(registrationUrl, {
+          method: "POST",
+        });
+
+        if (response?.response || response?.isAxiosError) {
+          throw new Error(
+            response?.message || "Push device registration API failed."
+          );
+        }
+
+        console.log("Push device registration succeeded");
+      } catch (error) {
+        console.error("Push registration error", error);
+      }
+    },
+    [companyOptions, getDeviceId, useHttpService]
+  );
+
+  const fetchCompanyList = useCallback(async () => {
     try {
       const response: any = await useHttpService.sendRequest(
         "https://app.acefinancials.com/ACECompanyListAPI/api/ace/GetCompanyList",
@@ -92,8 +182,9 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       console.error("Error fetching company list:", error);
       // Handle error appropriately
     }
-  };
-  const retriveCredentials = async () => {
+  }, [useHttpService]);
+
+  const retriveCredentials = useCallback(async () => {
     try {
       const userId = await SecureStore.getItemAsync("userId");
       const compId = await SecureStore.getItemAsync("compId");
@@ -112,7 +203,34 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       console.log("Error retrieving credentials", error);
       return false;
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchCompanyList();
+    const checkCredentials = async () => {
+      const credentialsExist = await retriveCredentials();
+      if (!credentialsExist) {
+        setPage("Register");
+      }
+    };
+    checkCredentials();
+  }, [fetchCompanyList, retriveCredentials]);
+
+  useEffect(() => {
+    const pushTokenSubscription = Notifications.addPushTokenListener(
+      async (pushToken) => {
+        if (!username || !compId) {
+          return;
+        }
+        await registerPushDevice(username, compId, pushToken.data);
+      }
+    );
+
+    return () => {
+      pushTokenSubscription.remove();
+    };
+  }, [username, compId, registerPushDevice]);
+
   const storeCredentials = async (userId: string, compId: string) => {
     try {
       await SecureStore.setItemAsync("userId", userId);
@@ -144,9 +262,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         Password: password,
       };
 
-      setApiUrl(apiUrl);
       console.log("Login URL", apiUrl);
-      setApiParams(apiUrlpParams);
       const response: any = await useHttpService.sendRequest(apiUrl, {
         method: "POST",
         headers: {
@@ -163,7 +279,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             storeCredentials(username, compId),
           ]);
 
-          setSmesssage("Login successful!");
+          await registerPushDevice(username, compId);
 
           // // Add a small delay before navigation
           // setTimeout(() => {
