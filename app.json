@@ -4,7 +4,7 @@
     "slug": "ace",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/app-icon.jpg",
+    "icon": "./assets/images/app-icon.jpeg",
     "scheme": "aceapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -17,7 +17,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/app-icon.jpg",
+        "foregroundImage": "./assets/images/app-icon.jpeg",
         "backgroundColor": "#ffffff",
         "versionCode": 3
       },
@@ -34,7 +34,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/app-icon.jpg",
+          "image": "./assets/images/app-icon.jpeg",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"

@@ -111,7 +111,9 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
         const token =
           customToken ||
-          (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+          (Platform.OS === "android" || Platform.OS === "ios"
+            ? (await Notifications.getDevicePushTokenAsync()).data
+            : (await Notifications.getExpoPushTokenAsync({ projectId })).data);
 
         if (!token) {
           throw new Error("Expo push token generation failed.");
