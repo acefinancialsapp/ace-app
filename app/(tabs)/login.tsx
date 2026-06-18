@@ -142,6 +142,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
           userId,
           companyId,
           deviceId,
+          token
         });
 
         const response: any = await sendRequest(registrationUrl, {

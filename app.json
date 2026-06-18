@@ -2,7 +2,7 @@
   "expo": {
     "name": "ace",
     "slug": "ace",
-    "version": "1.0.0",
+    "version": "11.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/app-icon.jpeg",
     "scheme": "aceapp",
@@ -22,8 +22,10 @@
         "versionCode": 3
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.acefinancials.aceapp"
+      "package": "com.acefinancials.aceapp",
+      "googleServicesFile": "./google-services.json"
     },
+    
     "web": {
       "bundler": "metro",
       "output": "static",
@@ -56,7 +58,7 @@
       "eas": {
         "projectId": "91a60d89-d214-4fce-bce3-a557fc05cb9b"
       }
-    },
+    },    
     "owner": "acefinancialsapp"
   }
 }
