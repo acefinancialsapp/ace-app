@@ -74,6 +74,22 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       }
     };
     checkCredentials();
+
+    const loadDeviceDetails = async () => {
+      try {
+        const deviceId = await getOrGenerateDeviceId();
+        if (deviceId) {
+          setRegisteredDeviceId(deviceId);
+        }
+        const token = await registerForPushNotificationsAsync("expo", false);
+        if (token) {
+          setRegisteredDeviceToken(token);
+        }
+      } catch (err) {
+        console.error("Error loading device details on mount:", err);
+      }
+    };
+    loadDeviceDetails();
   }, []);
   const fetchCompanyList = async () => {
     try {
@@ -181,10 +197,14 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
           let deviceId = "";
           try {
             deviceId = await getOrGenerateDeviceId();
+            if (deviceId) {
+              setRegisteredDeviceId(deviceId);
+            }
             const fetchedToken = await registerForPushNotificationsAsync("expo");
             if (fetchedToken) {
               pushToken = fetchedToken;
               console.log("Push Token obtained:", pushToken);
+              setRegisteredDeviceToken(pushToken);
               
               // Wait for device registration API to complete
               const registered = await registerDeviceWithBackend({
@@ -197,8 +217,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
               if (registered) {
                 console.log("Device successfully registered for push notifications.");
-                setRegisteredDeviceId(deviceId);
-                setRegisteredDeviceToken(pushToken);
               } else {
                 console.warn("Device registration API returned failure.");
               }
@@ -209,14 +227,8 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             console.error("Error setting up push notifications:", pushErr);
           }
 
-          setSmesssage("Login successful!");
-
-          // Conditionally navigate: Keep the user on Registration page to copy the credentials
-          if (page !== "Register") {
-            navigation.navigate("Menu");
-          } else {
-            setSmesssage("Registration completed! Device details are displayed below.");
-          }
+          setSmesssage(page === "Register" ? "Registration completed successfully!" : "Login successful!");
+          navigation.navigate("Menu");
 
           console.log("Login successful");
         } catch (storageError) {
@@ -268,44 +280,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
       <View style={styles.container}>
         <Text style={styles.title}>{page}</Text>
-
-        {registeredDeviceId || registeredDeviceToken ? (
-          <View style={styles.testInfoContainer}>
-            <Text style={styles.testInfoTitle}>Registered Device Info (For Testing)</Text>
-            
-            <View style={styles.testInfoRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.testInfoLabel}>Device ID:</Text>
-                <Text style={styles.testInfoValue} numberOfLines={1} ellipsizeMode="middle">
-                  {registeredDeviceId || "N/A"}
-                </Text>
-              </View>
-              <View style={{ marginLeft: 10, width: 70 }}>
-                <Button
-                  title="Copy"
-                  color="#04447c"
-                  onPress={() => copyToClipboard(registeredDeviceId, "Device ID")}
-                />
-              </View>
-            </View>
-
-            <View style={styles.testInfoRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.testInfoLabel}>Device Token:</Text>
-                <Text style={styles.testInfoValue} numberOfLines={2} ellipsizeMode="tail">
-                  {registeredDeviceToken || "N/A"}
-                </Text>
-              </View>
-              <View style={{ marginLeft: 10, width: 70 }}>
-                <Button
-                  title="Copy"
-                  color="#04447c"
-                  onPress={() => copyToClipboard(registeredDeviceToken, "Device Token")}
-                />
-              </View>
-            </View>
-          </View>
-        ) : null}
 
         <View style={styles.inpputcontainer}>
           {error ? (

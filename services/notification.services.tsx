@@ -56,7 +56,8 @@ export async function getOrGenerateDeviceId(): Promise<string> {
  * @param tokenType 'expo' | 'native'
  */
 export async function registerForPushNotificationsAsync(
-  tokenType: 'expo' | 'native' = 'expo'
+  tokenType: 'expo' | 'native' = 'expo',
+  requestPermission: boolean = true
 ): Promise<string | null> {
   if (!Device.isDevice) {
     console.warn('Push notifications require a physical device.');
@@ -77,13 +78,13 @@ export async function registerForPushNotificationsAsync(
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
-  if (existingStatus !== 'granted') {
+  if (existingStatus !== 'granted' && requestPermission) {
     const { status } = await Notifications.requestPermissionsAsync();
     finalStatus = status;
   }
 
   if (finalStatus !== 'granted') {
-    console.warn('Notification permissions denied.');
+    console.warn('Notification permissions not granted.');
     return null;
   }
 
@@ -95,7 +96,8 @@ export async function registerForPushNotificationsAsync(
     } else {
       const projectId =
         Constants.expoConfig?.extra?.eas?.projectId ??
-        Constants.easConfig?.projectId;
+        Constants.easConfig?.projectId ??
+        '91a60d89-d214-4fce-bce3-a557fc05cb9b';
 
       if (!projectId) {
         throw new Error('EAS Project ID not found in configuration.');
