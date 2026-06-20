@@ -18,6 +18,12 @@ import { endpointConstants } from "@/constants/endpoint";
 import { Picker } from "@react-native-picker/picker";
 import { getCompUrl } from "@/services/common.services";
 import { Dropdown } from "react-native-element-dropdown";
+import {
+  getOrGenerateDeviceId,
+  registerForPushNotificationsAsync,
+  registerDeviceWithBackend,
+} from "@/services/notification.services";
+import * as Clipboard from "expo-clipboard";
 
 type RootStackParamMenu = {
   Menu: undefined;
@@ -35,9 +41,17 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [compId, setCompId] = useState("");
+  const [registeredDeviceId, setRegisteredDeviceId] = useState("");
+  const [registeredDeviceToken, setRegisteredDeviceToken] = useState("");
   const [usernameFocused, setUsernameFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [error, setError] = useState("");
+
+  const copyToClipboard = async (text: string, label: string) => {
+    if (!text) return;
+    await Clipboard.setStringAsync(text);
+    alert(`${label} copied to clipboard!`);
+  };
   const useHttpService = useHttp();
   const [isLoading, setIsLoading] = useState(false);
   const [page, setPage] = useState("");
@@ -163,12 +177,46 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             storeCredentials(username, compId),
           ]);
 
+          let pushToken = "";
+          let deviceId = "";
+          try {
+            deviceId = await getOrGenerateDeviceId();
+            const fetchedToken = await registerForPushNotificationsAsync("expo");
+            if (fetchedToken) {
+              pushToken = fetchedToken;
+              console.log("Push Token obtained:", pushToken);
+              
+              // Wait for device registration API to complete
+              const registered = await registerDeviceWithBackend({
+                userId: username,
+                companyId: compId,
+                deviceId: deviceId,
+                deviceToken: pushToken,
+                sendRequestFn: useHttpService.sendRequest,
+              });
+
+              if (registered) {
+                console.log("Device successfully registered for push notifications.");
+                setRegisteredDeviceId(deviceId);
+                setRegisteredDeviceToken(pushToken);
+              } else {
+                console.warn("Device registration API returned failure.");
+              }
+            } else {
+              console.log("Push Token was null.");
+            }
+          } catch (pushErr) {
+            console.error("Error setting up push notifications:", pushErr);
+          }
+
           setSmesssage("Login successful!");
 
-          // // Add a small delay before navigation
-          // setTimeout(() => {
-          navigation.navigate("Menu");
-          // }, 1000);
+          // Conditionally navigate: Keep the user on Registration page to copy the credentials
+          if (page !== "Register") {
+            navigation.navigate("Menu");
+          } else {
+            setSmesssage("Registration completed! Device details are displayed below.");
+          }
 
           console.log("Login successful");
         } catch (storageError) {
@@ -220,6 +268,45 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
       <View style={styles.container}>
         <Text style={styles.title}>{page}</Text>
+
+        {registeredDeviceId || registeredDeviceToken ? (
+          <View style={styles.testInfoContainer}>
+            <Text style={styles.testInfoTitle}>Registered Device Info (For Testing)</Text>
+            
+            <View style={styles.testInfoRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.testInfoLabel}>Device ID:</Text>
+                <Text style={styles.testInfoValue} numberOfLines={1} ellipsizeMode="middle">
+                  {registeredDeviceId || "N/A"}
+                </Text>
+              </View>
+              <View style={{ marginLeft: 10, width: 70 }}>
+                <Button
+                  title="Copy"
+                  color="#04447c"
+                  onPress={() => copyToClipboard(registeredDeviceId, "Device ID")}
+                />
+              </View>
+            </View>
+
+            <View style={styles.testInfoRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.testInfoLabel}>Device Token:</Text>
+                <Text style={styles.testInfoValue} numberOfLines={2} ellipsizeMode="tail">
+                  {registeredDeviceToken || "N/A"}
+                </Text>
+              </View>
+              <View style={{ marginLeft: 10, width: 70 }}>
+                <Button
+                  title="Copy"
+                  color="#04447c"
+                  onPress={() => copyToClipboard(registeredDeviceToken, "Device Token")}
+                />
+              </View>
+            </View>
+          </View>
+        ) : null}
+
         <View style={styles.inpputcontainer}>
           {error ? (
             <Text style={{ color: "red", marginBottom: 10 }}>{error}</Text>
@@ -411,5 +498,42 @@ const styles = StyleSheet.create({
     display: "flex",
     alignItems: "center",
     justifyContent: "space-around",
+  },
+  testInfoContainer: {
+    marginHorizontal: 30,
+    marginTop: 10,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: "#04447c",
+    backgroundColor: "#f0f8ff",
+    borderRadius: 8,
+  },
+  testInfoTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#04447c",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  testInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  testInfoLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 2,
+  },
+  testInfoValue: {
+    fontSize: 12,
+    color: "#555",
+    backgroundColor: "#fff",
+    padding: 6,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: "#ddd",
   },
 });

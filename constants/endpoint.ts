@@ -12,8 +12,6 @@ export const endpointConstants = {
   GETAPPROVALLOGS:"ace/GetApprovalLogs",
   GETAPPROVALUSERS:"ace/GetApprovalUsers",
   GETAPPROVALCOUNT:"api/ace/GetApprovalCount",
-  GETAPPROVALLOGINCOUNT:"api/ace/GetApprovalCountForLogin"
-
-  
-
+  GETAPPROVALLOGINCOUNT:"api/ace/GetApprovalCountForLogin",
+  REGISTERPUSHDEVICE: "ace/RegisterPushDevice"
 };
