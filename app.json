@@ -2,7 +2,7 @@
   "expo": {
     "name": "ace",
     "slug": "ace",
-    "version": "11.0.0",
+    "version": "22.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/app-icon.jpeg",
     "scheme": "aceapp",

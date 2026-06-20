@@ -19,7 +19,7 @@ import { endpointConstants } from "@/constants/endpoint";
 import { Dropdown } from "react-native-element-dropdown";
 import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
-import * as Device from "expo-device";
+
 import * as Application from "expo-application";
 
 type RootStackParamMenu = {
@@ -46,13 +46,12 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const [page, setPage] = useState("");
 
   const [companyOptions, setCompanyOptions] = useState<any[]>([]);
-  const [compName, setCompName] = useState("");
-  const [pinModalVisible, setPinModalVisible] = useState(false);
-  const [pin, setPin] = useState("");
-  const [confirmPin, setConfirmPin] = useState("");
-  const [pinError, setPinError] = useState("");
-  const [registrationToken, setRegistrationToken] = useState("");
-  const [loginPin, setLoginPin] = useState("");
+  const [registrationDetails, setRegistrationDetails] = useState<{
+    userId: string;
+    companyId: string;
+    deviceId: string;
+    token: string;
+  } | null>(null);
 
   const getDeviceId = useCallback(async () => {
     try {
@@ -72,12 +71,12 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const registerPushDevice = useCallback(
     async (userId: string, companyId: string, customToken?: string) => {
       try {
-        if (!Device.isDevice) {
-          console.log(
-            "Push notification registration skipped: not a physical device."
-          );
-          return;
-        }
+        // if (!Device.isDevice) {
+        //   console.log(
+        //     "Push notification registration skipped: not a physical device."
+        //   );
+        //   return;
+        // }
 
         if (Platform.OS === "android") {
           await Notifications.setNotificationChannelAsync("default", {
@@ -156,6 +155,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         }
 
         console.log("Push device registration succeeded");
+        return { userId, companyId, deviceId, token };
       } catch (error: any) {
         const errorMessage =
           typeof error === "string"
@@ -205,22 +205,10 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       const userId = await SecureStore.getItemAsync("userId");
       const compId = await SecureStore.getItemAsync("compId");
       const comUrl = await SecureStore.getItemAsync("comUrl");
-      const storedCompName = await SecureStore.getItemAsync("compName");
       if (userId && compId && comUrl) {
         setUsername(userId);
         setCompId(compId);
-        if (storedCompName) setCompName(storedCompName);
-        try {
-          const pinCheckUrl = `${comUrl}/api/${endpointConstants.GETLOGINPIN}/${encodeURIComponent(compId)}/${encodeURIComponent(userId)}`;
-          const pinResponse: any = await sendRequest(pinCheckUrl, { method: "GET" });
-          const hasPinLogin =
-            pinResponse === true ||
-            pinResponse?.Data === true ||
-            pinResponse?.Value === true;
-          setPage(hasPinLogin ? "PinLogin" : "Login");
-        } catch {
-          setPage("Login");
-        }
+        setPage("Login");
         console.log("Credentials retrieved successfully");
         return true;
       } else {
@@ -272,76 +260,21 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     }
   };
 
-  const handleSetPin = async () => {
-    if (!/^\d{4}$/.test(pin)) {
-      setPinError("Please enter a valid 4-digit PIN.");
-      return;
-    }
-    if (pin !== confirmPin) {
-      setPinError("PINs do not match. Please try again.");
-      return;
-    }
-    setPinError("");
-    setIsLoading(true);
-    try {
-      const compUrl =
-        companyOptions.find((c) => c.value === compId)?.url ||
-        (await SecureStore.getItemAsync("comUrl")) ||
-        "";
-      const pinUrl = `${compUrl}/api/${endpointConstants.APPUPDATEPIN}/${encodeURIComponent(
-        compId
-      )}/${encodeURIComponent(username)}/${encodeURIComponent(
-        pin
-      )}/${encodeURIComponent(registrationToken)}`;
-      await sendRequest(pinUrl, { method: "POST" });
-      console.log("PIN set successfully");
-    } catch (err: any) {
-      console.error(`PIN setup error: ${err?.message || err}`);
-    } finally {
-      setIsLoading(false);
-      setPin("");
-      setConfirmPin("");
-      setPinModalVisible(false);
-      setPage("RegisterComplete");
-    }
-  };
 
-  const handleSkipPin = () => {
-    setPin("");
-    setConfirmPin("");
-    setPinError("");
-    setPinModalVisible(false);
-    setPage("RegisterComplete");
-  };
 
   const handleReRegister = () => {
     setError("");
-    setPin("");
-    setConfirmPin("");
-    setPinError("");
-    setLoginPin("");
-    setRegistrationToken("");
     setPage("Register");
   };
 
   const handleGoToLogin = () => {
     setError("");
     setPassword("");
-    setPin("");
-    setConfirmPin("");
-    setPinError("");
-    setLoginPin("");
-    setRegistrationToken("");
     setPage("Login");
   };
 
   const handleLogin = async (retryCount = 0) => {
-    if (page === "PinLogin") {
-      if (!/^\d{4}$/.test(loginPin)) {
-        setError("Please enter your 4-digit PIN.");
-        return;
-      }
-    } else if (!username.trim() || !password.trim()) {
+    if (!username.trim() || !password.trim()) {
       setError("Please enter both username and password.");
       return;
     }
@@ -357,8 +290,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       const apiUrlpParams = {
         Compid: compId,
         Username: username,
-        Password: page === "PinLogin" ? "" : password,
-        UserPin: page === "PinLogin" ? loginPin : "",
+        Password: password,
       };
 
       console.log("Login URL", apiUrl);
@@ -378,11 +310,11 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             storeCredentials(username, compId),
           ]);
 
-          await registerPushDevice(username, compId);
+          const details = await registerPushDevice(username, compId);
 
           if (page === "Register") {
-            setRegistrationToken(response.token);
-            setPinModalVisible(true);
+            if (details) setRegistrationDetails(details);
+            setPage("RegisterComplete");
           } else {
             navigation.navigate("Menu");
           }
@@ -393,7 +325,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
           setError("Failed to save login information");
         }
       } else {
-        setError("Incorrect PIN or Password.");
+        setError("Incorrect Username or Password.");
       }
     } catch (err: any) {
       console.error("Login error:", err);
@@ -411,72 +343,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
   return (
     <View style={styles.headercontainer}>
-      <Modal
-        transparent={true}
-        animationType="fade"
-        visible={pinModalVisible}
-        onRequestClose={handleSkipPin}
-      >
-        <View style={styles.modalBackground}>
-          <View style={styles.pinModalWrapper}>
-            <Text style={styles.pinTitle}>Set a 4-Digit PIN</Text>
-            <Text style={styles.pinSubtitle}>
-              Secure your account with a PIN, or skip this step.
-            </Text>
-            {pinError ? (
-              <Text style={{ color: "red", marginBottom: 8, fontSize: 13 }}>
-                {pinError}
-              </Text>
-            ) : null}
-            <Text style={{ marginBottom: 6, color: "#04447c", fontSize: 13 }}>
-              New PIN
-            </Text>
-            <TextInput
-              style={[styles.input, { letterSpacing: 8, textAlign: "center" }]}
-              placeholder="● ● ● ●"
-              value={pin}
-              onChangeText={(text) => {
-                setPinError("");
-                if (/^\d{0,4}$/.test(text)) setPin(text);
-              }}
-              keyboardType="number-pad"
-              maxLength={4}
-              secureTextEntry
-            />
-            <Text style={{ marginBottom: 6, color: "#04447c", fontSize: 13 }}>
-              Confirm PIN
-            </Text>
-            <TextInput
-              style={[styles.input, { letterSpacing: 8, textAlign: "center" }]}
-              placeholder="● ● ● ●"
-              value={confirmPin}
-              onChangeText={(text) => {
-                setPinError("");
-                if (/^\d{0,4}$/.test(text)) setConfirmPin(text);
-              }}
-              keyboardType="number-pad"
-              maxLength={4}
-              secureTextEntry
-            />
-            <View style={styles.pinButtonRow}>
-              <View style={{ flex: 1, marginRight: 8 }}>
-                <Button
-                  title="Skip"
-                  color="#888"
-                  onPress={handleSkipPin}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Button
-                  title="Set PIN"
-                  color="#04447c"
-                  onPress={handleSetPin}
-                />
-              </View>
-            </View>
-          </View>
-        </View>
-      </Modal>
+
 
       <Modal
         transparent={true}
@@ -504,7 +371,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
       <View style={styles.container}>
         <Text style={styles.title}>
-          {page === "PinLogin" ? "Login" : page}
+          {page}
         </Text>
         <View style={styles.inpputcontainer}>
           {page === "RegisterComplete" ? (
@@ -546,40 +413,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                 />
               </View>
             </View>
-          ) : page === "PinLogin" ? (
-            <>
-              {error ? (
-                <Text style={{ color: "red", marginBottom: 10 }}>{error}</Text>
-              ) : null}
-              <Text style={{ marginBottom: 4, color: "#888", fontSize: 12 }}>
-                Company
-              </Text>
-              <Text style={styles.readOnlyField}>{compName || compId}</Text>
-              <Text style={{ marginBottom: 4, color: "#888", fontSize: 12 }}>
-                User Id
-              </Text>
-              <Text style={styles.readOnlyField}>{username}</Text>
-              <Text style={{ marginBottom: 8, color: "#04447c" }}>PIN</Text>
-              <TextInput
-                style={[styles.input, { letterSpacing: 8, textAlign: "center" }]}
-                placeholder="● ● ● ●"
-                value={loginPin}
-                onChangeText={(text) => {
-                  setError("");
-                  if (/^\d{0,4}$/.test(text)) setLoginPin(text);
-                }}
-                keyboardType="number-pad"
-                maxLength={4}
-                secureTextEntry
-              />
-              <View style={styles.buttonContainer}>
-                <Button
-                  title="Login"
-                  color="#04447c"
-                  onPress={() => handleLogin()}
-                />
-              </View>
-            </>
           ) : (
             <>
           {error ? (
@@ -691,6 +524,45 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               onPress={() => handleLogin()}
             />
           </View>
+          {page === "Register" && registrationDetails && (
+            <View
+              style={{
+                marginTop: 20,
+                padding: 14,
+                backgroundColor: "#f0f7ff",
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: "#9db7c5",
+              }}
+            >
+              <Text
+                style={{
+                  fontWeight: "bold",
+                  color: "#04447c",
+                  marginBottom: 10,
+                  fontSize: 14,
+                }}
+              >
+                Registration Details
+              </Text>
+              <Text style={{ color: "#555", marginBottom: 6, fontSize: 13 }}>
+                <Text style={{ fontWeight: "bold" }}>User ID: </Text>
+                {registrationDetails.userId}
+              </Text>
+              <Text style={{ color: "#555", marginBottom: 6, fontSize: 13 }}>
+                <Text style={{ fontWeight: "bold" }}>Company ID: </Text>
+                {registrationDetails.companyId}
+              </Text>
+              <Text style={{ color: "#555", marginBottom: 6, fontSize: 13 }}>
+                <Text style={{ fontWeight: "bold" }}>Device ID: </Text>
+                {registrationDetails.deviceId}
+              </Text>
+              <Text style={{ color: "#555", fontSize: 13 }}>
+                <Text style={{ fontWeight: "bold" }}>Token: </Text>
+                {registrationDetails.token}
+              </Text>
+            </View>
+          )}
             </>
           )}
         </View>
@@ -770,40 +642,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-around",
   },
-  pinModalWrapper: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    padding: 28,
-    width: width - 60,
-    alignItems: "stretch",
-  },
-  pinTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#04447c",
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  pinSubtitle: {
-    fontSize: 13,
-    color: "#555",
-    marginBottom: 16,
-    textAlign: "center",
-  },
-  pinButtonRow: {
-    flexDirection: "row",
-    marginTop: 8,
-  },
-  readOnlyField: {
-    height: 48,
-    borderColor: "#e0e0e0",
-    borderWidth: 1,
-    marginBottom: 16,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: "#f5f5f5",
-    color: "#555",
-    lineHeight: 48,
-    fontSize: 15,
-  },
+
 });
