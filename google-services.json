@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "365167590904",
+    "project_id": "ace-financials-34434",
+    "storage_bucket": "ace-financials-34434.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:365167590904:android:2adb2ac8960c4d4c2baa0d",
+        "android_client_info": {
+          "package_name": "com.acefinancials.aceapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyASDCiaZ5e_TRzc67vg_dhBQC9Qd7ujQow"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
