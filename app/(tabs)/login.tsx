@@ -46,12 +46,31 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const [usernameFocused, setUsernameFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [error, setError] = useState("");
+  const [hasSavedCredentials, setHasSavedCredentials] = useState(false);
 
   const copyToClipboard = async (text: string, label: string) => {
     if (!text) return;
     await Clipboard.setStringAsync(text);
     alert(`${label} copied to clipboard!`);
   };
+
+  const handleReRegister = async () => {
+    setUsername("");
+    setPassword("");
+    setCompId("");
+    setError("");
+    setSmesssage("");
+    setRegisteredDeviceId("");
+    setRegisteredDeviceToken("");
+    setPage("Register");
+  };
+
+  const handleCancelReRegister = async () => {
+    setError("");
+    setSmesssage("");
+    await retriveCredentials();
+  };
+
   const useHttpService = useHttp();
   const [isLoading, setIsLoading] = useState(false);
   const [page, setPage] = useState("");
@@ -71,6 +90,9 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       const credentialsExist = await retriveCredentials();
       if (!credentialsExist) {
         setPage("Register");
+        setHasSavedCredentials(false);
+      } else {
+        setHasSavedCredentials(true);
       }
     };
     checkCredentials();
@@ -192,6 +214,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             storeToken(response.token),
             storeCredentials(username, compId),
           ]);
+          setHasSavedCredentials(true);
 
           let pushToken = "";
           let deviceId = "";
@@ -348,12 +371,17 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
           )}
           <Text style={{ marginBottom: 8, color: "#04447c" }}>User Id</Text>
           <TextInput
+            editable={page === "Register"}
             style={[
               styles.input,
               usernameFocused && {
                 borderColor: "#61A3BA",
                 backgroundColor: "#fff",
                 fontSize: 16,
+              },
+              page !== "Register" && {
+                backgroundColor: "#f5f5f5",
+                color: "#777",
               },
             ]}
             placeholder="Username"
@@ -384,12 +412,44 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             autoCapitalize="none"
           />
 
-          <View style={styles.buttonContainer}>
-            <Button
-              title={page === "Register" ? "Register" : "Login"}
-              color="#04447c"
-              onPress={() => handleLogin()}
-            />
+          <View style={styles.buttonsWrapper}>
+            {page === "Login" ? (
+              <>
+                <View style={styles.buttonItem}>
+                  <Button
+                    title="Re-Register"
+                    color="#8e1616"
+                    onPress={handleReRegister}
+                  />
+                </View>
+                <View style={styles.buttonItem}>
+                  <Button
+                    title="Login"
+                    color="#04447c"
+                    onPress={() => handleLogin()}
+                  />
+                </View>
+              </>
+            ) : (
+              <>
+                {hasSavedCredentials && (
+                  <View style={styles.buttonItem}>
+                    <Button
+                      title="Cancel"
+                      color="#555"
+                      onPress={handleCancelReRegister}
+                    />
+                  </View>
+                )}
+                <View style={styles.buttonItem}>
+                  <Button
+                    title="Register"
+                    color="#04447c"
+                    onPress={() => handleLogin()}
+                  />
+                </View>
+              </>
+            )}
           </View>
 
           {/* <Text>
@@ -448,9 +508,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 8,
   },
-  buttonContainer: {
-    width: 150, // set your desired width
-    alignSelf: "flex-end", // align the button to the right
+  buttonsWrapper: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignSelf: "flex-end",
+    gap: 12,
+  },
+  buttonItem: {
+    width: 120,
   },
   logo: {
     width: 120,
